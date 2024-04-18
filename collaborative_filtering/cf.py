@@ -11,91 +11,35 @@ import logging
 logging.basicConfig(format='%(asctime)s: %(levelname)s - %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 logging.getLogger().setLevel(logging.INFO)
 
-def create_train_and_test():
-    logging.info('train.txt, test.txt are not found. creating one.')
-    ratings_df = pd.read_csv(os.path.join('..', 'data', 'ml-latest-small', 'ratings.csv'))
+def split_train_test():
+    ratings_file = os.path.join('..', 'data', 'ml-latest-small', 'ratings.csv')
+    logging.info('Reading ' + ratings_file)
+    ratings_df = pd.read_csv(ratings_file)
 
-    user2item = defaultdict(list)
-    items = set()
+    user_ids = set()
+    movie_ids = set()
+
     for _, row in ratings_df.iterrows():
-        user2item[row['userId']].append(row['movieId'])
-        items.add(row['movieId'])
-
-    print(len(items))
+        user_ids.add(row['userId'])
+        movie_ids.add(row['movieId'])
     
-    user2item_df = pd.DataFrame({'user_id': user2item.keys(), 'item_ids': user2item.values()})
+    all_df = pd.DataFrame({userId: {movieId: 0 for movieId in movie_ids} for userId in user_ids})
 
+    for idx, row in ratings_df.iterrows():
+        if idx % 100 == 0:
+            logging.info(f'Processed {(idx/len(ratings_df) * 100)}')
+        all_df.loc[row['movieId'], row['userId']] = row['rating']
 
-    train_data = user2item_df.sample(frac=0.8, random_state=2024)
-    test_data = user2item_df[~user2item_df.index.isin(train_data.index)]
+    all_df.to_csv(os.path.join('..', 'data', 'ml-latest-small', 'movie2user.csv'))
 
-    user2item = defaultdict(list)
-    for _, row in train_data.iterrows():
-        user2item[row['user_id']].append(row['item_ids'])
-    with open(os.path.join('..', 'data', 'ml-latest-small', 'train.txt'), 'w') as f:
-        for userid, item_ids in user2item.items():
-            f.write(' '.join(map(str, [userid] + item_ids)) + '\n')
-
-    user2item = defaultdict(list)
-    for _, row in test_data.iterrows():
-        user2item[row['user_id']].append(row['item_ids'])
-    with open(os.path.join('..', 'data', 'ml-latest-small', 'test.txt'), 'w') as f:
-        for userid, item_ids in user2item.items():
-            f.write(' '.join(map(str, [userid] + item_ids)) + '\n')
-
-def get_train_data():
-    users = set()
-    items = set()
-    user2item = defaultdict(list)
-    item2user = defaultdict(list)
-
-    if not os.path.exists(train_file):
-        create_train_and_test()
-    
-    with open(train_file, 'r') as f:
-        for line in f.readlines():
-            userid, *itemids = line.split()
-            users.add(userid)
-            user2item[userid] = itemids
-            for itemid in itemids:
-                items.add(itemid)
-                item2user[itemid].append(userid)
-    
-    return (users, items, user2item, item2user)
-
-def get_test_data():
-    users = set()
-    items = set()
-    user2item = defaultdict(list)
-    item2user = defaultdict(list)
-
-    if not os.path.exists(test_file):
-        create_train_and_test()
-    
-    with open(test_file, 'r') as f:
-        for line in f.readlines():
-            userid, *itemids = line.split()
-            users.add(userid)
-            user2item[userid] = itemids
-            for itemid in itemids:
-                items.add(itemid)
-                item2user[itemid].append(userid)
-    
-    return (users, items, user2item, item2user)
-
-def train():
-    train_users, train_items, train_user2item, train_item2user = get_train_data()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mode', help='Specifies train or test', type=str, choices=['train', 'predict'])
     args = parser.parse_args()
 
-    train_file = os.path.join('..', 'data', 'ml-latest-small', 'train.txt')
-    test_file = os.path.join('..', 'data', 'ml-latest-small', 'test.txt')
-
     if args.mode == 'train':
         logging.info('Training')
-        train()
+        split_train_test()
     elif args.mode == 'predict':
         logging.info('Predict')

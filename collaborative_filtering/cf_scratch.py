@@ -1,6 +1,8 @@
 '''
 Collaborative filtering
 Author: Nikhil Vemula
+
+https://towardsdatascience.com/item-based-collaborative-filtering-in-python-91f747200fab
 '''
 import os
 import sys
